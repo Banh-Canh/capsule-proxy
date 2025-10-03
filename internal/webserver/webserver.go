@@ -50,6 +50,7 @@ import (
 	"github.com/projectcapsule/capsule-proxy/internal/modules/pod"
 	"github.com/projectcapsule/capsule-proxy/internal/modules/priorityclass"
 	"github.com/projectcapsule/capsule-proxy/internal/modules/runtimeclass"
+	"github.com/projectcapsule/capsule-proxy/internal/modules/selfsubjectaccessreview"
 	"github.com/projectcapsule/capsule-proxy/internal/modules/storageclass"
 	"github.com/projectcapsule/capsule-proxy/internal/modules/tenants"
 	"github.com/projectcapsule/capsule-proxy/internal/options"
@@ -141,6 +142,7 @@ func (n *kubeFilter) Start(ctx context.Context) error {
 	root := r.PathPrefix("").Subrouter()
 	n.registerModules(ctx, root)
 	root.Use(
+		middleware.CheckSelfSubjectAccessReviewMiddleware(n.writer, n.reader, n.log, n.usernameClaimField, n.authTypes, n.ignoredImpersonationGroups, n.impersonationGroupsRegexp, n.skipImpersonationReview, n.getTenantsForOwner, n.impersonateHandler),
 		n.reverseProxyMiddleware,
 		middleware.CheckPaths(n.log, n.allowedPaths, n.impersonateHandler),
 		middleware.CheckJWTMiddleware(n.writer),
@@ -327,6 +329,7 @@ func (n *kubeFilter) registerModules(ctx context.Context, root *mux.Router) {
 		namespace.Get(n.roleBindingsReflector, n.reader),
 		tenants.List(),
 		tenants.Get(n.reader),
+		selfsubjectaccessreview.Post(n.reader, n.writer),
 	}
 
 	// Discovery client
